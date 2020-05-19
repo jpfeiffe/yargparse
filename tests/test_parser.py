@@ -38,6 +38,12 @@ class TestYArgumentParser(unittest.TestCase):
         args = parser.parse_args(['--matrix[1][0] 18'])
         self.assertEqual(args.matrix[1][0], 18)
 
+    def test_nonevals(self):
+        parser = yargparse.YArgumentParser()
+        parser.add_argument('--train_epochs', default=None)
+        args = parser.parse_args(['--matrix[1][0] 18'])
+        self.assertEqual(args.train_epochs, 10)
+
 
 
 if __name__ == '__main__':

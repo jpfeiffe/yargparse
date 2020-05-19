@@ -61,8 +61,12 @@ class YArgumentParser(argparse.ArgumentParser):
         """
         args, overrides = super().parse_known_args(args)
         args = vars(args)
+
         with open(args[self.yaml_dest]) as fin:
-            config = yaml.load(fin)
+            config = yaml.safe_load(fin)
+
+        arg_none = {key : value for key, value in args.items() if value is None}
+        args = {key : value for key, value in args.items() if value is not None}
 
         overrides = ' '.join(overrides)
         overrides = [s.strip() for s in overrides.split('--') if s != '']
@@ -83,4 +87,10 @@ class YArgumentParser(argparse.ArgumentParser):
                 root[keys[-1]] = value
 
         config = {**config, **args}
+
+        # Merge in the None valued CLI only after no others are present
+        arg_none = {key : value for key, value in arg_none.items() if key not in config}
+        config = {**config, **arg_none}
+
+
         return dicts_to_namespaces(config)
