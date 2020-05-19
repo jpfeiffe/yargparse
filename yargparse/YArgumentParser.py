@@ -3,6 +3,7 @@ import argparse
 import ast
 import re
 from argparse import Namespace
+
 def dicts_to_namespaces(config) -> Namespace:
     """ 
     Translate a dictionary of dictionaries to namespaces of namespaces.  Recursively calls itself until reaching the basecase of not being a 
@@ -10,11 +11,12 @@ def dicts_to_namespaces(config) -> Namespace:
 
 
     """
-    if not isinstance(config, dict):
+    if not isinstance(config, dict) and not isinstance(config, list):
         return config
+    if isinstance(config, dict):
+        return Namespace(**{key : dicts_to_namespaces(val) for key, val in config.items()})
     
-    new_config = {key : dicts_to_namespaces(val) for key, val in config.items()}
-    return Namespace(**new_config)
+    return [dicts_to_namespaces(val) for val in config]
 
 class YArgumentParser(argparse.ArgumentParser):
     """
@@ -70,8 +72,7 @@ class YArgumentParser(argparse.ArgumentParser):
             splitpoint_end = re.search(' |=|:', override).end()
 
             keystr, value = override[:splitpoint_start], override[splitpoint_end:]
-            keys = keystr.split('.') if '.' in keystr else [keystr]
-
+            keys = [key if '[' not in key else int(key[1:-1]) for key in re.findall(r'[a-zA-Z_0-9]+|\[[0-9]+\]', keystr)]
             root = config
             for key in keys[:-1]:
                 root = root[key]

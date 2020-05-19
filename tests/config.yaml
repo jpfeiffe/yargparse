@@ -2,9 +2,14 @@ train_param:
     deltas: [1, 2, 3]
     lr: [.1, .2, .3]
 features:
-    f1:
-        type: "sparse"
-        dim: 100
-    f2:
-        type: "dense"
-        dim: 200
+    - type: "sparse"
+      dim: 100
+    - type: "dense"
+      dim: 200      
+matrix:
+    -
+        - 1
+        - 2
+    -
+        - 3
+        - 4
