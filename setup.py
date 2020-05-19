@@ -5,6 +5,7 @@ setup(
   version = '0.2',      # Start with a small number and increase it with every change you make
   license='MIT',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
   description = 'YAML / Argparse merger',   # Give a short description about your library
+  long_description=open('README.md', 'rt').read(),
   author = 'Joel Pfeiffer',                   # Type in your name
   author_email = 'jpfeiffe@gmail.com',      # Type in your E-Mail
   url = 'https://github.com/jpfeiffe/yargparse',   # Provide either the link to your github or to your website
