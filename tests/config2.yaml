@@ -1,4 +1,4 @@
-train_epochs: 10
+train_epochs: 20
 train_param:
     deltas: [1, 2, 3]
     lr: [.1, .2, .3]

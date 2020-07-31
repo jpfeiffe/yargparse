@@ -31,7 +31,7 @@ class YArgumentParser(argparse.ArgumentParser):
 
     can be overridden via --features.dim 1000
     """
-    def __init__(self, yaml_flag='-c', yaml_dest='--config', yaml_default='config.yaml', **kwargs):
+    def __init__(self, yaml_flag='-c', yaml_dest='--config', yaml_default=['config.yaml'], **kwargs):
         """
         Initialization including specifying the desired YAML file to use in command line interface.
 
@@ -44,11 +44,10 @@ class YArgumentParser(argparse.ArgumentParser):
         super().__init__(**kwargs)
         assert(yaml_flag is None or yaml_flag.startswith('-'))
         assert(yaml_dest.startswith('--'))
-
         if yaml_flag is not None:       
-            self.add_argument(yaml_flag, yaml_dest, default=yaml_default)
+            self.add_argument(yaml_flag, yaml_dest, default=yaml_default, nargs='+')
         else:
-            self.add_argument(yaml_dest, default=yaml_default)
+            self.add_argument(yaml_dest, default=yaml_default, nargs='+')
 
         self.yaml_dest = yaml_dest[2:]
 
@@ -62,8 +61,10 @@ class YArgumentParser(argparse.ArgumentParser):
         args, overrides = super().parse_known_args(args)
         args = vars(args)
 
-        with open(args[self.yaml_dest]) as fin:
-            config = yaml.safe_load(fin)
+        config = {}
+        for c in args[self.yaml_dest]:
+            with open(c) as fin:
+                config = {**config, **yaml.safe_load(fin)}
 
         arg_none = {key : value for key, value in args.items() if value is None}
         args = {key : value for key, value in args.items() if value is not None}
