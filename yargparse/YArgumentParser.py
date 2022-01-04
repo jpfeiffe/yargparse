@@ -2,6 +2,7 @@ import yaml
 import argparse
 import ast
 import re
+from mergedeep import merge
 from argparse import Namespace
 
 def dicts_to_namespaces(config) -> Namespace:
@@ -51,24 +52,68 @@ class YArgumentParser(argparse.ArgumentParser):
 
         self.yaml_dest = yaml_dest[2:]
 
-    def parse_args(self, args=None) -> Namespace:
+    def nest_dict(d):
+        nested_dict = {}
+        for keystr, value in d.items():
+            keys = [key if '[' not in key else int(key[1:-1]) for key in re.findall(r'[a-zA-Z_0-9]+|\[[0-9]+\]', keystr)]
+
+            root = nested_dict
+            for key in keys[:-1]:
+                if key not in root:
+                    root[key] = {}
+                root = root[key]
+                    
+            root[keys[-1]] = value
+        return nested_dict
+
+    def parse_args(self, args=None, handle_unk='raise') -> Namespace:
+        def checkkey(d, key, handle_unk):
+            if key in d:
+                return True
+            
+            if handle_unk == 'raise':
+                raise Exception(f"Override unk {key} not in config")
+            
+            if handle_unk == 'insert':
+                root[key] = {}
+                return True
+            
+            if handle_unk == 'pass':
+                return False
+            
+            raise Exception(f'Unknown handle_unk = {handle_unk}')
+
         """
         Overrides argparse's parse_args, to first recover the yaml configuration file and other true CLI,
         then merges the other CLI with the YAML file.
 
+        Order is:
+        1) Defaults from argparse
+        2) Values from configs
+        3) Values from command line
+
         Lastly, it combines both into a dict, which is translated into a namespace
         """
-        args, overrides = super().parse_known_args(args)
-        args = vars(args)
+        # Default arguments
+        args_default, _ = super().parse_known_args([])
+        args_default = vars(args_default)
 
-        config = {}
-        for c in args[self.yaml_dest]:
-            with open(c) as fin:
-                config = {**config, **yaml.safe_load(fin)}
+        # Explicitly set through command line
+        args_set, overrides = super().parse_known_args(args)
+        args_set = vars(args_set)
+        args_onlyset = {k : v for k, v in args_set.items() if k not in args_default or v != args_default[k]}
 
-        arg_none = {key : value for key, value in args.items() if value is None}
-        args = {key : value for key, value in args.items() if value is not None}
+        args_default = YArgumentParser.nest_dict(args_default)
+        args_onlyset = YArgumentParser.nest_dict(args_onlyset)
 
+        # Load our yaml configurations
+        fins = [open(c) for c in args_set[self.yaml_dest]]
+        configs = [yaml.safe_load(fin) for fin in fins]
+        fins = [fin.close() for fin in fins]
+
+        config = merge(*configs)
+
+        # Override values in the configurations
         overrides = ' '.join(overrides)
         overrides = [s.strip() for s in overrides.split('--') if s != '']
 
@@ -79,19 +124,18 @@ class YArgumentParser(argparse.ArgumentParser):
             keystr, value = override[:splitpoint_start], override[splitpoint_end:]
             keys = [key if '[' not in key else int(key[1:-1]) for key in re.findall(r'[a-zA-Z_0-9]+|\[[0-9]+\]', keystr)]
             root = config
+
+            set_value = True
+
             for key in keys[:-1]:
-                root = root[key]
-                    
-            if type(root[keys[-1]]) != str:
-                root[keys[-1]] = ast.literal_eval(value)
-            else:
-                root[keys[-1]] = value
+                if set_value := checkkey(root, key, handle_unk):
+                    root = root[key]
+            
+            if set_value and checkkey(root, keys[-1], handle_unk):
+                if type(root[keys[-1]]) != str:
+                    root[keys[-1]] = ast.literal_eval(value)
+                else:
+                    root[keys[-1]] = value
 
-        config = {**config, **args}
-
-        # Merge in the None valued CLI only after no others are present
-        arg_none = {key : value for key, value in arg_none.items() if key not in config}
-        config = {**config, **arg_none}
-
-
+        config = merge(args_default, config, args_onlyset)
         return dicts_to_namespaces(config)
